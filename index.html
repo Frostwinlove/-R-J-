@@ -3,39 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>R&J 任務同步板</title>
+    <title>R&J 任務即時同步板</title>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
     <style>
         body { font-family: sans-serif; background: #1a1a1a; color: #eee; margin: 0; padding: 10px; }
-        h1 { text-align: center; font-size: 1.2rem; color: #ffca28; }
+        .header { text-align: center; margin-bottom: 15px; }
+        h1 { font-size: 1.2rem; color: #ffca28; margin-bottom: 5px; }
         .dashboard { display: flex; justify-content: center; gap: 10px; overflow-x: auto; }
         .player-box { background: #2c2c2c; border-radius: 8px; padding: 10px; flex: 1; min-width: 170px; max-width: 220px; }
         .player-title { text-align: center; color: #ffca28; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #444; }
         .floor-row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
         .floor-num { font-size: 0.7rem; color: #666; width: 25px; text-align: right; }
         .btn-group { display: flex; flex: 1; gap: 3px; }
-        .cell {
-            flex: 1; background: #444; border: 1px solid #555; border-radius: 3px;
-            height: 35px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; user-select: none; font-weight: bold;
-        }
-        .status-v { background-color: #2e7d32 !important; color: white; } 
-        .status-x { background-color: #c62828 !important; color: white; opacity: 0.6; } 
-        .status-disabled { background-color: #111 !important; color: #333; opacity: 0.2; pointer-events: none; } 
-        .answer-summary { margin-top: 15px; padding: 8px; background: #111; border-radius: 4px; text-align: center; }
-        .answer-digits { font-size: 1.3rem; letter-spacing: 3px; font-family: monospace; color: #444; }
-        .digit-highlight { color: #4caf50; }
-        .reset-btn { display: block; margin: 10px auto; padding: 5px 20px; cursor: pointer; }
+        .cell { flex: 1; background: #444; border: 1px solid #555; border-radius: 3px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; font-weight: bold; font-size: 1.1rem; transition: 0.1s; }
+        
+        /* 顏色定義 */
+        .status-v { background-color: #2e7d32 !important; color: white; } /* 綠 (正確) */
+        .status-x { background-color: #c62828 !important; color: white; opacity: 0.7; } /* 紅 (錯誤) */
+        .status-disabled { background-color: #111 !important; color: #333; opacity: 0.2; pointer-events: none; } /* 灰 (排除) */
+        
+        /* 底部數字摘要 */
+        .answer-summary { margin-top: 15px; padding: 10px; background: #111; border-radius: 4px; text-align: center; border: 1px solid #333; }
+        .answer-digits { font-size: 1.4rem; letter-spacing: 4px; font-family: monospace; color: #444; word-break: break-all; }
+        .digit-highlight { color: #4caf50; font-weight: bold; }
+        
+        button { padding: 8px 25px; cursor: pointer; background: #444; color: white; border: 1px solid #666; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #555; }
     </style>
 </head>
 <body>
-    <h1>R&J 4人同步邏輯</h1>
-    <button class="reset-btn" onclick="resetGame()">重置</button>
+
+    <div class="header">
+        <h1>羅密歐與茱麗葉 - 即時同步板</h1>
+        <button onclick="resetGame()">清空整場紀錄</button>
+    </div>
+    
     <div class="dashboard" id="dashboard"></div>
 
     <script>
-        const totalFloors = 10, totalNums = 4;
+        // Firebase 設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQEfsWz-hfQswJY_sqsnIbHOVMUpDuWrM",
+            authDomain: "rjneo-bec2d.firebaseapp.com",
+            projectId: "rjneo-bec2d",
+            storageBucket: "rjneo-bec2d.firebasestorage.app",
+            messagingSenderId: "331714320566",
+            appId: "1:331714320566:web:339e81f6b4c5f9df32ee17"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const gameRef = database.ref('rj_game_live'); // 直接指向固定位置
         let gameState = Array.from({length:4},()=>Array.from({length:11},()=>Array.from({length:5},()=>'none')));
 
+        // 初始化介面
         function init() {
             const db = document.getElementById('dashboard'); db.innerHTML = '';
             for(let p=0; p<4; p++) {
@@ -52,36 +74,56 @@
                     c.oncontextmenu = (e) => e.preventDefault(); g.appendChild(c);
                 }
             }
-            render();
+            
+            // 監聽 Firebase 數據變化
+            gameRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) gameState = data;
+                render();
+            });
         }
 
-        function handleAction(p, f, n, t) { gameState[p][f][n] = (gameState[p][f][n]===t)?'none':t; render(); }
-        function resetGame() { if(confirm("重置?")) { gameState.forEach(p=>p.forEach(f=>f.fill('none'))); render(); } }
+        function handleAction(p, f, n, t) {
+            const current = gameState[p][f][n];
+            gameState[p][f][n] = (current === t) ? 'none' : t;
+            gameRef.set(gameState); // 更新到雲端
+        }
+
+        function resetGame() {
+            if(confirm("確定要重置整場資料嗎？")) {
+                const empty = Array.from({length:4},()=>Array.from({length:11},()=>Array.from({length:5},()=>'none')));
+                gameRef.set(empty);
+            }
+        }
 
         function render() {
             for (let f = 1; f <= 10; f++) {
                 let poss = Array.from({length:4}, ()=>Array.from({length:5}, ()=>true));
+                // 1. 收集 V/X 資訊
                 for(let p=0; p<4; p++) for(let n=1; n<=4; n++) {
                     if(gameState[p][f][n]==='x') poss[p][n]=false;
                     if(gameState[p][f][n]==='v') for(let i=1; i<=4; i++) if(i!==n) poss[p][i]=false;
                 }
+                // 2. 縱向互斥
                 for(let p=0; p<4; p++) for(let n=1; n<=4; n++) if(gameState[p][f][n]==='v') for(let i=0; i<4; i++) if(i!==p) poss[i][n]=false;
+                // 3. 連鎖推導
                 for(let i=0; i<2; i++) {
                     for(let n=1; n<=4; n++) { let pP = [0,1,2,3].filter(p=>poss[p][n]); if(pP.length===1) for(let j=1; j<=4; j++) if(j!==n) poss[pP[0]][j]=false; }
                     for(let p=0; p<4; p++) { let pN = [1,2,3,4].filter(n=>poss[p][n]); if(pN.length===1) for(let j=0; j<4; j++) if(j!==p) poss[j][pN[0]]=false; }
                 }
-                let res = document.getElementById(`s-0`).parentElement.parentElement; // dummy
+                // 4. 渲染
                 for(let p=0; p<4; p++) {
                     let ans = '-';
+                    const pPoss = [1,2,3,4].filter(n=>poss[p][n]);
                     for(let n=1; n<=4; n++) {
-                        const cell = document.getElementById(`c-${p}-${f}-${n}`); cell.className = 'cell';
-                        const isV = [1,2,3,4].filter(num=>poss[p][num]).length===1 && [1,2,3,4].filter(num=>poss[p][num])[0]===n;
-                        const isNumV = [0,1,2,3].filter(px=>poss[px][n]).length===1 && [0,1,2,3].filter(px=>poss[px][n])[0]===p;
-                        if(gameState[p][f][n]==='v' || isV || isNumV) { cell.classList.add('status-v'); ans = n; }
+                        const cell = document.getElementById(`c-${p}-${f}-${n}`); if(!cell)continue;
+                        cell.className = 'cell';
+                        const nPoss = [0,1,2,3].filter(px=>poss[px][n]);
+                        const isAutoV = (pPoss.length===1 && pPoss[0]===n) || (nPoss.length===1 && nPoss[0]===p);
+                        if(gameState[p][f][n]==='v' || isAutoV) { cell.classList.add('status-v'); ans = n; }
                         else if(gameState[p][f][n]==='x') cell.classList.add('status-x');
                         else if(!poss[p][n]) cell.classList.add('status-disabled');
                     }
-                    // 更新摘要
                     const s = document.getElementById(`s-${p}`);
                     if(f===1) s.innerHTML = ''; 
                     s.innerHTML += `<span class="${ans!=='-'?'digit-highlight':''}">${ans}</span>`;
