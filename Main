@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>羅密歐與茱麗葉 - 排除法記錄器</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: #fff; display: flex; flex-direction: column; align-items: center; }
+        .grid { display: grid; grid-template-columns: repeat(4, 60px); gap: 10px; margin-top: 20px; }
+        .row-label { grid-column: span 4; text-align: center; font-weight: bold; margin-top: 10px; color: #aaa; }
+        .cell {
+            width: 60px; height: 60px; border: 2px solid #555; display: flex;
+            align-items: center; justify-content: center; font-size: 24px;
+            cursor: pointer; user-select: none; background: #333; transition: 0.2s;
+        }
+        .cell:hover { border-color: #888; }
+        .status-v { background-color: #2e7d32 !important; color: white; } /* 確定正確 */
+        .status-x { background-color: #c62828 !important; color: white; } /* 確定錯誤 */
+        .status-disabled { background-color: #555 !important; opacity: 0.3; cursor: not-allowed; } /* 排除 */
+        .status-auto-v { background-color: #4caf50 !important; font-weight: bold; border: 2px solid yellow; } /* 自動推斷正確 */
+    </style>
+</head>
+<body>
+
+    <h2>R&J 任務記錄器 (10層 1-4)</h2>
+    <p>左鍵：V (正確) | 右鍵：X (錯誤) | 再次點擊取消</p>
+
+    <div id="game-grid" class="grid"></div>
+
+    <script>
+        const rows = 10;
+        const cols = 4;
+        const gridElement = document.getElementById('game-grid');
+
+        // 初始化格子
+        for (let r = rows; r >= 1; r--) {
+            const label = document.createElement('div');
+            label.className = 'row-label';
+            label.innerText = `第 ${r} 層`;
+            gridElement.appendChild(label);
+
+            for (let c = 1; c <= cols; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.row = r;
+                cell.dataset.col = c;
+                cell.dataset.state = 'none'; // none, v, x
+                cell.innerText = c;
+
+                // 左鍵點擊 (V)
+                cell.addEventListener('click', (e) => updateCell(cell, 'v'));
+                // 右鍵點擊 (X)
+                cell.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    updateCell(cell, 'x');
+                });
+
+                gridElement.appendChild(cell);
+            }
+        }
+
+        function updateCell(cell, type) {
+            const row = cell.dataset.row;
+            // 如果點到同一個狀態，就重置
+            if (cell.dataset.state === type) {
+                cell.dataset.state = 'none';
+            } else {
+                cell.dataset.state = type;
+            }
+            render(row);
+        }
+
+        function render(rowNum) {
+            const rowCells = Array.from(document.querySelectorAll(`.cell[data-row="${rowNum}"]`));
+            const vCell = rowCells.find(c => cellState(c) === 'v');
+            const xCells = rowCells.filter(c => cellState(c) === 'x');
+
+            rowCells.forEach(c => {
+                c.className = 'cell';
+                c.innerText = c.dataset.col;
+            });
+
+            if (vCell) {
+                // 如果有人按了 V，該層其他格變灰
+                vCell.classList.add('status-v');
+                vCell.innerText = 'V';
+                rowCells.forEach(c => {
+                    if (c !== vCell) c.classList.add('status-disabled');
+                });
+            } else if (xCells.length === 3) {
+                // 如果有三個人按了 X，剩下一格自動變綠底
+                xCells.forEach(c => {
+                    c.classList.add('status-x');
+                    c.innerText = 'X';
+                });
+                const remaining = rowCells.find(c => cellState(c) === 'none');
+                if (remaining) {
+                    remaining.classList.add('status-auto-v');
+                    remaining.innerText = 'V';
+                }
+            } else {
+                // 一般狀態顯示 X
+                xCells.forEach(c => {
+                    c.classList.add('status-x');
+                    c.innerText = 'X';
+                });
+            }
+        }
+
+        function cellState(cell) { return cell.dataset.state; }
+    </script>
+</body>
+</html>
