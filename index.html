@@ -214,6 +214,7 @@ body {
                     // 更新摘要
                     const summary = document.getElementById(`s-${p}`);
                     if(f === 1) summary.innerHTML = '';
+					if (f === 6) {summary.innerHTML += `<span style="color:#666; margin:0 3px;">-</span>`;}
                     summary.innerHTML += `<span class="${finalVal !== '-' ? 'digit-highlight' : ''}">${finalVal}</span>`;
                 }
             }
