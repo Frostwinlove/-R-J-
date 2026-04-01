@@ -7,12 +7,36 @@
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background: #1a1a1a; color: #eee; margin: 0; padding: 10px; }
+body { 
+            font-family: "Microsoft JhengHei", sans-serif; 
+            background: #1a1a1a; color: #eee; 
+            margin: 0; padding: 0; 
+            overflow: hidden !important; 
+        }
+		/* 隱藏所有瀏覽器捲軸 */
+		::-webkit-scrollbar { display: none; }
+		
         .header { text-align: center; margin-bottom: 15px; }
         h1 { font-size: 1.2rem; color: #ffca28; margin: 5px; }
-        .dashboard { display: flex; justify-content: center; gap: 10px; overflow-x: auto; align-items: flex-start; }
+        .dashboard {
+			display: flex;
+			justify-content: space-around;
+			align-items: flex-start;
+			gap: 5px;
+			padding: 5px;
+			/* 讓內容自動縮放以填滿視窗，不超出邊界 */
+			width: 100vw;
+			box-sizing: border-box;
+		}
         
-        .player-box { background: #2c2c2c; border-radius: 8px; padding: 10px; flex: 1; min-width: 175px; max-width: 230px; }
+        .player-box {
+			flex: 1;
+			min-width: 0; /* 允許縮小 */
+			background: #2c2c2c;
+			border-radius: 8px;
+			padding: 5px;
+			border: 1px solid #444;
+		}
         .player-title { text-align: center; color: #ffca28; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #444; padding-bottom: 5px; }
         
         .floor-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; padding: 2px; }
@@ -111,11 +135,13 @@
         }
 
         // 2. 處理點擊邏輯
-        function handleAction(p, f, n, type) {
+        function handleAction(p, f, n, t) {
             const current = gameState[p][f][n];
-            gameState[p][f][n] = (current === type) ? 'none' : type;
-            // 直接更新到 Firebase，由監聽器觸發 render
-            gameRef.set(gameState);
+            const newValue = (current === t) ? 'none' : t;
+            
+            // 不要用 gameRef.set(gameState)，改用特定的路徑更新
+            // 這樣玩家 1 更新 [0][f][n] 時，絕對不會影響到玩家 2 的 [1][f][n]
+            database.ref('rj_game_live/' + p + '/' + f + '/' + n).set(newValue);
         }
 
         // 3. 重置按鈕
