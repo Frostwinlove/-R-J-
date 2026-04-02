@@ -61,7 +61,7 @@
             const db = document.getElementById('dashboard'); 
             db.innerHTML = '';
             for(let p=0; p<4; p++) {
-                let html = `<div class="player-box"><div class="player-title">玩家 ${p+1}</div>`;
+                let html = `<div class="player-box"><div class="player-title">玩家 ${p+1}<span id="st-${p}" style="color:#888; font-size:0.75rem; font-weight:normal; margin-left:10px;"></span></div>`;
                 for(let f=10; f>=1; f--) {
                     html += `<div class="floor-row"><div class="floor-num">${f}F</div><div class="btn-group" id="g-${p}-${f}"></div></div>`;
                 }
@@ -107,6 +107,7 @@
 
         function render() {
             let maxFail = 0, minTotal = 999, failKing = -1, luckyDog = -1;
+			let playerFinishedStatus = [false, false, false, false];
             stats.forEach((s, p) => {
                 let total = s.pass + s.fail;
                 if (s.fail > maxFail && s.fail > 0) { maxFail = s.fail; failKing = p; }
@@ -144,27 +145,38 @@
                     if (f === 6) summary.innerHTML += `<span style="color:#666; margin:0 3px;">-</span>`;
                     summary.innerHTML += `<span class="${finalVal !== '-' ? 'digit-highlight' : ''}">${finalVal}</span>`;
 
-					if (f === 10) {
-                        // 1. 取得該玩家目前的數字串 (去除非數字字元)
-                        let text = summary.innerText.replace(/[^\d]/g, ''); 
-                        
-                        // 2. 定義該玩家的總點擊數 (這裡定義給你看了！)
-                        let playerTotalClick = stats[p].pass + stats[p].fail;
-
-                        // 3. 檢查：是否 10 層樓都滿了 (長度為 10)
-                        if (text.length >= 10) {
-                            // 判定 A：地獄倒楣鬼 (點錯最多，且真的有錯過)
-                            if (p === failKing && stats[p].fail > 0) {
-                                summary.innerHTML += `<br><span style="color:#ff4d4d; font-size:11px; font-weight:bold;">[地獄倒楣鬼]</span>`;
-                            } 
-                            // 判定 B：躺贏狗 (點擊最少，且總數小於 6 次，且不是倒楣鬼)
-                            else if (p === luckyDog && playerTotalClick < 6 && p !== failKing) {
-                                summary.innerHTML += `<br><span style="color:#00e5ff; font-size:11px; font-weight:bold;">[躺贏狗]</span>`;
-                            }
-                        }
-                    }
+					if (f === 10 && finalVal !== '-') {
+						playerFinishedStatus[p] = true;
+					}
                 }
             }
+			const allFinished = playerFinishedStatus.every(status => status === true);
+			// 2. 如果全場都結束了，才顯示稱號
+			if (allFinished) {
+				for (let p = 0; p < 4; p++) {
+					// 抓取標題旁邊的統計區域
+					const statsSpan = document.getElementById(`st-${p}`);
+					const summary = document.getElementById(`s-${p}`);
+					
+					// 防止重複添加標籤到摘要區
+					if (summary.innerHTML.includes('[')) continue; 
+
+					const pPass = stats[p].pass;
+					const pFail = stats[p].fail;
+					const pTotal = pPass + pFail;
+
+					// A. 更新標題旁邊的 (P:X F:Y)
+					statsSpan.innerText = `(P:${pPass} F:${pFail})`;
+
+					// B. 在底部顯示稱號 (保持在數字下方比較醒目)
+					if (p === failKing && pFail > 0) {
+						summary.innerHTML += `<br><span style="color:#ff4d4d; font-size:11px; font-weight:bold;">[地獄倒楣鬼]</span>`;
+					} 
+					else if (p === luckyDog && pTotal < 6 && p !== failKing) {
+						summary.innerHTML += `<br><span style="color:#00e5ff; font-size:11px; font-weight:bold;">[躺贏狗]</span>`;
+					}
+				}
+			}
         }
 
         initUI();
